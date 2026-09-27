@@ -53,6 +53,7 @@ fields with real weight if touched by mistake, account status, credit limit,
 a fraud hold.
 
 ```bash
+npm install -g trackline             # the actual monitor this adapts, npmjs.com/package/trackline
 export SOLARI_API_KEY=slr_live_...   # https://console.getsolari.com
 npm install
 npm start -- clean       # edits only the mailing address. Everything proceeds.

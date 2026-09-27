@@ -46,39 +46,47 @@ async function main() {
   console.log(`\n=== trackline-for-solari: ${mode} run ===`)
   console.log(`Task: "${TASK}"\n`)
 
+  // Nested try/finally, not one flat block: if Solari setup throws before
+  // browser exists, the outer finally still shuts trackline down. Reproduced
+  // by running with SOLARI_API_KEY unset before this fix, the trackline
+  // process was left running because the flat try started after both
+  // constructors.
   const trackline = new TracklineClient(join(__dirname))
-  await trackline.initialize()
-
-  const solari = new Solari({ apiKey: process.env.SOLARI_API_KEY! })
-  const browser = await solari.launch()
-
   try {
-    const page = await browser.newPage()
-    const html = readFileSync(join(__dirname, "fixture.html"), "utf-8")
-    await page.setContent(html)
+    await trackline.initialize()
 
-    for (const edit of edits) {
-      const virtualPath = `customer/48213/${edit.field}`
-      const result = await trackline.checkFieldEdit(virtualPath, edit.value, TASK)
+    const solari = new Solari({ apiKey: process.env.SOLARI_API_KEY! })
+    const browser = await solari.launch()
 
-      const label = result.verdict === "proceed" ? "PROCEED" : result.verdict === "stop" ? "STOP  " : "ASK   "
-      console.log(`[trackline] ${label}  ${edit.field} -> "${edit.value}"`)
-      if (result.reason) {
-        for (const line of result.reason.split("\n")) console.log(`           ${line}`)
+    try {
+      const page = await browser.newPage()
+      const html = readFileSync(join(__dirname, "fixture.html"), "utf-8")
+      await page.setContent(html)
+
+      for (const edit of edits) {
+        const virtualPath = `customer/48213/${edit.field}`
+        const result = await trackline.checkFieldEdit(virtualPath, edit.value, TASK)
+
+        const label = result.verdict === "proceed" ? "PROCEED" : result.verdict === "stop" ? "STOP  " : "ASK   "
+        console.log(`[trackline] ${label}  ${edit.field} -> "${edit.value}"`)
+        if (result.reason) {
+          for (const line of result.reason.split("\n")) console.log(`           ${line}`)
+        }
+
+        if (result.verdict !== "proceed") {
+          console.log(`           (agent did not touch the field on the page, waiting on a person)\n`)
+          continue
+        }
+
+        await page.fill(`#${edit.field}`, edit.value)
+        console.log(`           (field updated on the page)\n`)
       }
 
-      if (result.verdict !== "proceed") {
-        console.log(`           (agent did not touch the field on the page, waiting on a person)\n`)
-        continue
-      }
-
-      await page.fill(`#${edit.field}`, edit.value)
-      console.log(`           (field updated on the page)\n`)
+      console.log("=== run complete ===\n")
+    } finally {
+      await browser.close()
     }
-
-    console.log("=== run complete ===\n")
   } finally {
-    await browser.close()
     trackline.close()
   }
 }

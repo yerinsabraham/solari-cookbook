@@ -43,6 +43,14 @@ async function main() {
   const mode = process.argv[2] === "bad-agent" ? "bad-agent" : "clean"
   const edits = mode === "bad-agent" ? BAD_AGENT_RUN : CLEAN_RUN
 
+  if (!process.env.SOLARI_API_KEY) {
+    console.error(
+      'SOLARI_API_KEY is not set.\n\n  export SOLARI_API_KEY=slr_live_...\n\n' +
+        "Get one at https://console.getsolari.com, then run this again."
+    )
+    process.exit(1)
+  }
+
   console.log(`\n=== trackline-for-solari: ${mode} run ===`)
   console.log(`Task: "${TASK}"\n`)
 

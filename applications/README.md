@@ -40,4 +40,4 @@ variable it reads and nothing else.
 | Application | Language | What it does |
 | --- | --- | --- |
 | [worldline](worldline) | Python | Snapshot-branch competing plans, verify their artifacts, and replay only the winner |
-| [trackline-for-solari](trackline-for-solari) | TypeScript | Adapts trackline's real scope-monitoring check to a Solari browser agent, pausing a field edit the stated task never mentioned before it touches the page |
+| [trackline-for-solari](trackline-for-solari) | TypeScript | Checks every field edit a Solari browser agent makes against its task with trackline, hands each paused edit to a person over a Solari handoff to approve, reject or correct, then resumes the same session and verifies the result on the server |

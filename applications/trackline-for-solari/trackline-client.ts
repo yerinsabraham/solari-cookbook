@@ -11,9 +11,15 @@
  * check_action as an `edit_file` against that path. trackline's real scope
  * logic, unmodified, decides whether the field matches the stated task.
  */
-import { spawn, type ChildProcessByStdio } from "node:child_process"
+import { execFile, spawn, type ChildProcessByStdio } from "node:child_process"
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { createInterface } from "node:readline"
 import type { Writable, Readable } from "node:stream"
+import { promisify } from "node:util"
+
+const run = promisify(execFile)
 
 export type Verdict = "proceed" | "stop" | "ask"
 
@@ -33,9 +39,12 @@ export class TracklineClient {
   private nextId = 1
   private pending = new Map<number, (msg: any) => void>()
   private spawnError: Error | null = null
+  readonly root: string
 
-  constructor(root: string) {
-    this.proc = spawn("trackline", ["mcp", "--root", root], {
+  constructor(configDir: string) {
+    this.root = mkdtempSync(join(tmpdir(), "trackline-for-solari-"))
+    copyFileSync(join(configDir, ".trackline.json"), join(this.root, ".trackline.json"))
+    this.proc = spawn("trackline", ["mcp", "--root", this.root], {
       stdio: ["pipe", "pipe", "inherit"],
     })
     // Without this, a missing `trackline` binary (ENOENT) surfaces only as a
@@ -128,8 +137,19 @@ export class TracklineClient {
     }
   }
 
+  /**
+   * Record a person's approval, exactly the command trackline's own pause
+   * message tells them to run. It has to be project-wide: the MCP server
+   * answers every question as one fixed session with no turn, so an approval
+   * scoped to "this request" could never match the retry.
+   */
+  async allow(virtualPath: string, reason: string): Promise<void> {
+    await run("trackline", ["allow", "scope", virtualPath, "--project", "--reason", reason, "--root", this.root])
+  }
+
   close(): void {
     this.proc.stdin.end()
     this.proc.kill()
+    rmSync(this.root, { recursive: true, force: true })
   }
 }
